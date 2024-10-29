@@ -1,2 +1,2 @@
-The dataset used: https://github.com/ViCCo-Group/THINGS-data/tree/main/MRI //
+The dataset used: https://github.com/ViCCo-Group/THINGS-data/tree/main/MRI \n
 Image-embeddings using FAISS: https://github.com/rom1504/image_embeddings
