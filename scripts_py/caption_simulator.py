@@ -1,15 +1,15 @@
 import argparse
-import os
 from embeddings_utils import run_blip_model, run_llava_model
+import warnings
 
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '0'
+warnings.filterwarnings("ignore")
 
 
 def main():
     # Argument parser
     parser = argparse.ArgumentParser(description="Image Captioning Pipeline")
     parser.add_argument('--project_dir', type=str, default='/projects/crunchie/boyanova/EEG_Things/Grouping-Embeddings', help="Path to the project directory")
-    parser.add_argument('--image_dir', type=str, default='/projects/crunchie/boyanova/EEG_Things/data_set/Images', help="Path to the image directory")  # Fixed typo here
+    parser.add_argument('--image_dir', type=str, default='/projects/crunchie/boyanova/EEG_Things/data_set/Images', help="Path to the image directory") 
     parser.add_argument('--interactive', action='store_true', help="Enable interactive mode to choose language model step")
 
     args = parser.parse_args()
