@@ -37,11 +37,11 @@ def main():
     
     if steps["CLIP text embeddings (BLIP model)"]:
         print("<<< Getting CLIP text embeddings with BLIP model >>>")
-        clip_txt(args.project_dir, "blip")
+        clip_txt(args.project_dir, args.image_dir, "blip")
     
     if steps["CLIP text embeddings (LLAVA model)"]:
         print("<<< Getting CLIP text embeddings with LLAVA model >>>")
-        clip_txt(args.project_dir, "llava")
+        clip_txt(args.project_dir, args.image_dir, "llava")
 
 if __name__ == "__main__":
     main()

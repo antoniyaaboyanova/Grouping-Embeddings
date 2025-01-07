@@ -170,15 +170,22 @@ def clip_vis(project_dir, image_dir):
     print("Total Image Embeddings Shape:", all_image_embeddings.shape)
 
     CLIP_vis = {"stimuli": fmri_stim,
-            "stimuli_paths": imagePaths,
-            "embeddings": all_image_embeddings}
+                "stimuli_paths": imagePaths,
+                "embeddings": all_image_embeddings}
     
     file_name = "CLIP_vis_fmri.pickle"
     save_dir = os.path.join(project_dir, "files", file_name)
     dump_data(CLIP_vis, save_dir)
 
 
-def clip_txt(project_dir, language_model="blip"): 
+def clip_txt(project_dir, image_dir,  language_model="blip"):
+    
+    fmri_stim = np.load(os.path.join(project_dir, "files", "fmri_train_stim.npy"), allow_pickle=True)
+    imagePaths = []
+
+    for im in tqdm(fmri_stim):
+        im_cat = im.split(".")[0][0:-4]
+        imagePaths.append(os.path.join(image_dir, im_cat, im))
 
     cap_name = f"fmri_train_caps_{language_model}.npy"
     captions = np.load(os.path.join(project_dir,"files", cap_name), allow_pickle=True)
@@ -190,7 +197,6 @@ def clip_txt(project_dir, language_model="blip"):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     processor = CLIPProcessor.from_pretrained("openai/clip-vit-large-patch14",                                                                             
                                               cache_dir=cache_dir)
-    
     
     model = model.to(device)
 
@@ -204,8 +210,10 @@ def clip_txt(project_dir, language_model="blip"):
             embeddings_1.append(embed_1.detach().cpu().numpy())
 
         embeddings_1 = np.array(embeddings_1)
-        CLIP_txt = {"captions": captions[:,0],
-           "embeddings": embeddings_1.reshape(8640, -1)}
+        CLIP_txt = {"stimuli": fmri_stim,
+                    "stimuli_paths": imagePaths,
+                    "captions": captions[:,0],
+                    "embeddings": embeddings_1.reshape(8640, -1)}
 
     if language_model == "llava":
         embeddings_1 = []  
@@ -217,16 +225,60 @@ def clip_txt(project_dir, language_model="blip"):
             embeddings_1.append(embed_1.detach().cpu().numpy())
 
         embeddings_1 = np.array(embeddings_1)
-        CLIP_txt = {"captions": captions,
+        CLIP_txt = {"stimuli": fmri_stim,
+                    "stimuli_paths": imagePaths,
+                    "captions": captions,
                     "embeddings": embeddings_1.reshape(8640, -1)}
     
     file_name = f"CLIP_txt_fmri_{language_model}.pickle"
     save_dir = os.path.join(project_dir, "files", file_name)
     dump_data(CLIP_txt, save_dir)
     
+def extract_centroids(project_dir, clip_file_name, class_type):
+    
+    import hdbscan
+    import umap 
+    import pandas as pd
+    from sklearn.preprocessing import StandardScaler
+    
+    if class_type not in ["inanimate", "animate"]:
+        raise ValueError("class_type must be either 'inanimate' (default) or 'animate'.")
+    
+    clip_file = load_data(os.path.join(project_dir, "files", clip_file_name))
+    animal_mask = np.load(os.path.join(project_dir, "files", "animate_mask.npy"))
+    
+    if class_type =="inanimate":
+        animal_mask = ~animal_mask
 
+     ###### update dictionary  ######
+    clip_file["category"] = np.array([x[0:-8] for x in clip_file["stimuli"]])
 
-        
+    ###### get clusters ######
+    reducer = umap.UMAP(n_neighbors=30, n_components=5, random_state=42)
+    clusterer = hdbscan.HDBSCAN(min_cluster_size=100, metric='euclidean')
 
+    embeddings = clip_file["embeddings"][animal_mask, :]
 
+    scaler = StandardScaler()
+    embeddings = scaler.fit_transform(embeddings)
+    reduced_embeddings = reducer.fit_transform(embeddings)
+    labels = clusterer.fit_predict(reduced_embeddings)
+    
 
+    for key in clip_file.keys():
+        clip_file[key] =  np.array(clip_file[key])[animal_mask]
+
+    clip_file["cluster"] = labels 
+
+    ### Compute centroid
+    embeddings_df = pd.DataFrame(clip_file["embeddings"].tolist())
+    embeddings_df['cluster'] = clip_file["cluster"]
+    centroids = embeddings_df.groupby('cluster').mean().to_numpy()
+
+    clip_file["cluster_centroids"] = centroids
+    print(f"New embedding shape: {clip_file['embeddings'].shape}")
+
+    new_name = clip_file_name.split(".")[0]
+    file_name = f"{new_name}_{class_type}.pickle"
+    dump_data(clip_file , os.path.join(project_dir, "files", file_name))
+    
