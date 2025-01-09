@@ -1,2 +1,3 @@
 # Ignore the model cache directory
 models/*
+scripts_nb/04_Visualise_Embeddings.ipynb
