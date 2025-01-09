@@ -6,6 +6,7 @@ import logging
 from tqdm import tqdm
 
 from PIL import Image
+from scipy.spatial import distance
 from transformers import BlipProcessor, BlipForConditionalGeneration, AutoProcessor, LlavaForConditionalGeneration
 from transformers import CLIPProcessor, CLIPModel
 
@@ -255,7 +256,7 @@ def extract_centroids(project_dir, clip_file_name, class_type):
 
     ###### get clusters ######
     reducer = umap.UMAP(n_neighbors=30, n_components=5, random_state=42)
-    clusterer = hdbscan.HDBSCAN(min_cluster_size=100, metric='euclidean')
+    clusterer = hdbscan.HDBSCAN(min_cluster_size=50, metric='euclidean')
 
     embeddings = clip_file["embeddings"][animal_mask, :]
 
@@ -268,6 +269,7 @@ def extract_centroids(project_dir, clip_file_name, class_type):
     for key in clip_file.keys():
         clip_file[key] =  np.array(clip_file[key])[animal_mask]
 
+    clip_file['embeddings'] = embeddings # scaled! 
     clip_file["cluster"] = labels 
 
     ### Compute centroid
@@ -279,6 +281,86 @@ def extract_centroids(project_dir, clip_file_name, class_type):
     print(f"New embedding shape: {clip_file['embeddings'].shape}")
 
     new_name = clip_file_name.split(".")[0]
+    file_path = os.path.join(project_dir, "files", class_type)
     file_name = f"{new_name}_{class_type}.pickle"
-    dump_data(clip_file , os.path.join(project_dir, "files", file_name))
+
+    # Ensure the directory exists
+    os.makedirs(file_path, exist_ok=True)
+
+    # Save the file
+    dump_data(clip_file, os.path.join(file_path, file_name))
+
+    return clip_file
+
+
+
+
+def sort_data(c_vis, c_txt, mode="vis"):
+    """
+    Sorts data based on visual or textual clusters.
+
+    Args:
+        c_vis (dict): Dictionary containing visual data, including embeddings, clusters, and metadata.
+        c_txt (dict): Dictionary containing textual data, including embeddings, clusters, and metadata.
+        mode (str): Sorting mode, either "vis" (default) or "txt".
+
+    Returns:
+        dict: Sorted data including embeddings, stimuli, and associated metadata.
+    """
+    if mode not in ["vis", "txt"]:
+        raise ValueError("Invalid mode. Must be 'vis' or 'txt'.")
+
+    if mode == "vis":
+        source = c_vis
+        target = c_txt
+        sorted_keys = ["image_embeddings", "text_embeddings", "stimuli", "stimuli_paths", "category", "clusters"]
+    
+    elif mode == "txt":
+        
+        source = c_txt
+        target = c_vis
+        sorted_keys = ["text_embeddings", "image_embeddings", "stimuli", "stimuli_paths", "category", "clusters"]
+
+    sorted_data = {key: [] for key in sorted_keys}
+    top_25_embeddings = {key: [] for key in sorted_keys}
+
+    for cl_id, cl in enumerate(np.unique(source["cluster"])):
+        cluster_mask = source["cluster"] == cl
+        cluster_embeddings = source["embeddings"][cluster_mask]
+        cluster_target_embeddings = target["embeddings"][cluster_mask]
+        cluster_centroid = source["cluster_centroids"][cl_id, :].reshape(1, -1)
+        distances = distance.cdist(cluster_embeddings, cluster_centroid, "euclidean").flatten()
+        order = np.argsort(distances)
+
+        sorted_data[sorted_keys[0]].append(cluster_embeddings[order])  # First key: primary embeddings
+        sorted_data[sorted_keys[1]].append(cluster_target_embeddings[order])  # Second key: target embeddings
+        sorted_data["stimuli"].append(source["stimuli"][cluster_mask][order])
+        sorted_data["stimuli_paths"].append(target["stimuli_paths"][cluster_mask][order])
+        sorted_data["category"].append(source["category"][cluster_mask][order])
+        sorted_data["clusters"].append(np.full(order.shape, cl))
+
+        
+        top_25_embeddings[sorted_keys[0]].append(cluster_embeddings[order[:25]])  
+        top_25_embeddings[sorted_keys[1]].append(cluster_target_embeddings[order[:25]])  
+        top_25_embeddings["stimuli"].append(source["stimuli"][cluster_mask][order[:25]])
+        top_25_embeddings["stimuli_paths"].append(target["stimuli_paths"][cluster_mask][order[:25]])
+        top_25_embeddings["category"].append(source["category"][cluster_mask][order[:25]])
+        top_25_embeddings["clusters"].append(np.full(order[:25].shape, cl))
+
+
+    # Concatenate lists into arrays
+    for key in sorted_data:
+        sorted_data[key] = np.concatenate(sorted_data[key])
+    # Concatenate the top 25 embeddings for each cluster
+    for key in top_25_embeddings:
+        top_25_embeddings[key] = np.concatenate(top_25_embeddings[key])
+
+    
+    return sorted_data, top_25_embeddings
+
+
+
+
+
+
     

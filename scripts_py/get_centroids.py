@@ -1,8 +1,14 @@
-import argparse
-from embeddings_utils import extract_centroids
+import os
 import warnings
+# Suppress specific TensorFlow backend logs
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 
 warnings.filterwarnings("ignore")
+
+import argparse
+from embeddings_utils import extract_centroids, sort_data, dump_data
+
 
 def main():
     
@@ -46,19 +52,42 @@ def main():
     if steps["CLIP image embeddings"]:
         print("<<< Getting CLIP image centroids >>>")
         clip_f_name = "CLIP_vis_fmri.pickle"
-        extract_centroids(args.project_dir, clip_f_name, steps["inanimate or animate"])
+        clip_vis = extract_centroids(args.project_dir, clip_f_name, steps["inanimate or animate"])
     
     if steps["CLIP text embeddings (BLIP model)"]:
         print("<<< Getting CLIP text (BLIP) centroids >>>")
         clip_f_name = "CLIP_txt_fmri_blip.pickle"
-        extract_centroids(args.project_dir, clip_f_name, steps["inanimate or animate"])
-        
-    
+        clip_blip = extract_centroids(args.project_dir, clip_f_name, steps["inanimate or animate"])
+
+        if steps["CLIP image embeddings"]:
+             # sort the data 
+             print("Sorting data...")
+             for mode in ['vis', 'txt']:
+                sorted_dict, top_dict = sort_data(clip_vis, clip_blip, mode = mode)
+                dump_data(sorted_dict, os.path.join(args.project_dir, "files", 
+                                                    steps['inanimate or animate'], 
+                                                "sorted_CLIP_{mode}_blip.pickle"))
+                
+                dump_data(top_dict, os.path.join(args.project_dir, "files", 
+                                                steps['inanimate or animate'], 
+                                                "top25_CLIP_{mode}_blip.pickle"))
+
     if steps["CLIP text embeddings (LLAVA model)"]:
         print("<<< Getting CLIP text (LLAVA) centroids >>>")
         clip_f_name = "CLIP_txt_fmri_llava.pickle"
-        extract_centroids(args.project_dir, clip_f_name, steps["inanimate or animate"])
-        
+        clip_llava = extract_centroids(args.project_dir, clip_f_name, steps["inanimate or animate"])
+        if steps["CLIP image embeddings"]:
+             # sort the data 
+             print("Sorting data...")
+             for mode in ['vis', 'txt']:
+                sorted_dict, top_dict = sort_data(clip_vis, clip_llava, mode = mode)
+                dump_data(sorted_dict, os.path.join(args.project_dir, "files", 
+                                                    steps['inanimate or animate'], 
+                                                "sorted_CLIP_{mode}_llava.pickle"))
+                
+                dump_data(top_dict, os.path.join(args.project_dir, "files", 
+                                                steps['inanimate or animate'], 
+                                                "top25_CLIP_{mode}_llava.pickle"))        
 
 if __name__ == "__main__":
     main()
