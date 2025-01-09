@@ -292,9 +292,6 @@ def extract_centroids(project_dir, clip_file_name, class_type):
 
     return clip_file
 
-
-
-
 def sort_data(c_vis, c_txt, mode="vis"):
     """
     Sorts data based on visual or textual clusters.
