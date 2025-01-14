@@ -1,3 +1,11 @@
 # Ignore the model cache directory
 models/*
 scripts_nb/04_Visualise_Embeddings.ipynb
+scripts_py/visualize.ipynb
+
+# Ignore Python cache files
+__pycache__/
+*.py[cod]
+
+# Ignore IPython notebook checkpoints
+.ipynb_checkpoints/

@@ -66,11 +66,11 @@ def main():
                 sorted_dict, top_dict = sort_data(clip_vis, clip_blip, mode = mode)
                 dump_data(sorted_dict, os.path.join(args.project_dir, "files", 
                                                     steps['inanimate or animate'], 
-                                                "sorted_CLIP_{mode}_blip.pickle"))
+                                                f"sorted_CLIP_{mode}_blip.pickle"))
                 
                 dump_data(top_dict, os.path.join(args.project_dir, "files", 
                                                 steps['inanimate or animate'], 
-                                                "top25_CLIP_{mode}_blip.pickle"))
+                                                f"top25_CLIP_{mode}_blip.pickle"))
 
     if steps["CLIP text embeddings (LLAVA model)"]:
         print("<<< Getting CLIP text (LLAVA) centroids >>>")
@@ -83,11 +83,11 @@ def main():
                 sorted_dict, top_dict = sort_data(clip_vis, clip_llava, mode = mode)
                 dump_data(sorted_dict, os.path.join(args.project_dir, "files", 
                                                     steps['inanimate or animate'], 
-                                                "sorted_CLIP_{mode}_llava.pickle"))
+                                                f"sorted_CLIP_{mode}_llava.pickle"))
                 
                 dump_data(top_dict, os.path.join(args.project_dir, "files", 
                                                 steps['inanimate or animate'], 
-                                                "top25_CLIP_{mode}_llava.pickle"))        
+                                                f"top25_CLIP_{mode}_llava.pickle"))        
 
 if __name__ == "__main__":
     main()
