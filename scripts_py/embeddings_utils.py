@@ -355,7 +355,51 @@ def sort_data(c_vis, c_txt, mode="vis"):
     
     return sorted_data, top_25_embeddings
 
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+import matplotlib.image as mpimg
+from matplotlib.backends.backend_pdf import PdfPages
 
+mpl.rcParams['axes.spines.right'] = False
+mpl.rcParams['axes.spines.top'] = False
+mpl.rc('image', cmap='viridis')
+
+plt.rcParams.update({
+    "font.family": "serif",  
+    # use serif/main font for text elements
+    })
+plt.rcParams.update({'font.size': 20})
+plt.rcParams.update({'font.weight': 'bold'})
+plt.rcParams.update({'axes.linewidth': 2.5})
+plt.rcParams.update({'axes.labelweight': 'bold'})
+plt.rcParams.update({'axes.labelsize': 20})
+plt.rc('legend',fontsize=12)
+
+def plot_images(paths):
+    num_images = len(paths)
+    fig, axes = plt.subplots(1, num_images, figsize=(num_images * 5, 5))
+    
+    for i, path in enumerate(paths):
+        im_name = path.split("/")[-1].split(".")[0]
+        img = mpimg.imread(path)
+        axes[i].imshow(img)
+        axes[i].set_title(im_name, fontsize = 16)
+        axes[i].axis('off')
+    
+    plt.tight_layout()
+    plt.show()
+    
+
+def plot_images_to_pdf(paths, pdf_filename='images.pdf'):
+    with PdfPages(pdf_filename) as pdf:
+        for row in paths:
+            fig, axes = plt.subplots(1, len(row), figsize=(len(row) * 5, 5))
+            for j, path in enumerate(row):
+                img = mpimg.imread(path)
+                axes[j].imshow(img)
+                axes[j].axis('off')
+            pdf.savefig(fig) 
+            plt.close(fig) 
 
 
 
