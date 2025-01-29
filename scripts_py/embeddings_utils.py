@@ -25,9 +25,13 @@ def dump_data(data, filename):
 
 
 #### Captions generation #####
-def run_blip_model(project_dir, image_dir):
+def run_blip_model(project_dir, 
+                  image_dir, 
+                  input_file_name = "fmri_train_stim.npy", 
+                  output_file_name = "fmri_train_caps_blip.npy"):
+    
     cache_dir = os.path.join(project_dir, "models")
-    fmri_stim = np.load(os.path.join(project_dir, "files", "fmri_train_stim.npy"), allow_pickle=True)
+    fmri_stim = np.load(os.path.join(project_dir, "files", input_file_name), allow_pickle=True)
     imagePaths = []
 
     for im in tqdm(fmri_stim):
@@ -67,13 +71,15 @@ def run_blip_model(project_dir, image_dir):
         torch.cuda.empty_cache()
     
     # Save    
-    file_name = "fmri_train_caps_blip.npy"
-    save_dir = os.path.join(project_dir, "files", file_name)
+    save_dir = os.path.join(project_dir, "files", output_file_name)
     np.save(save_dir, np.array(simulated_captions))
 
-def run_llava_model(project_dir, image_dir):
+def run_llava_model(project_dir, 
+                    image_dir, 
+                    input_file_name = "fmri_train_stim.npy",
+                    output_file_name = "fmri_train_caps_llava.npy"):
     cache_dir = os.path.join(project_dir, "models")
-    fmri_stim = np.load(os.path.join(project_dir, "files", "fmri_train_stim.npy"), allow_pickle=True)
+    fmri_stim = np.load(os.path.join(project_dir, "files", input_file_name), allow_pickle=True)
     imagePaths = []
 
     for im in tqdm(fmri_stim):
@@ -112,7 +118,7 @@ def run_llava_model(project_dir, image_dir):
         inputs = processor(text=prompts * len(batch_images), images=batch_images, padding=True, return_tensors="pt").to("cuda")
         
         # Generate the output
-        output = model.generate(**inputs, max_new_tokens=40)
+        output = model.generate(**inputs)
         generated_text = processor.batch_decode(output, skip_special_tokens=True)
         generated_text = [text.split("ASSISTANT:")[-1] for text in generated_text]
 
@@ -123,8 +129,7 @@ def run_llava_model(project_dir, image_dir):
         # Clear GPU memory before processing the next batch
         torch.cuda.empty_cache()
 
-    file_name = "fmri_train_caps_llava.npy"
-    save_dir = os.path.join(project_dir, "files", file_name)
+    save_dir = os.path.join(project_dir, "files", output_file_name)
     np.save(save_dir, np.array(simulated_captions))
 
 #### CLIP extractors #####
