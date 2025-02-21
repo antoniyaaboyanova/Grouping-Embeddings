@@ -1,9 +1,7 @@
 
-##################################################
-##### Libraries #####
-##################################################
 import mne
 import pickle
+import logging
 import scipy
 import numpy as np
 import pandas as pd
@@ -14,16 +12,15 @@ from sklearn.discriminant_analysis import _cov
 from sklearn.svm import LinearSVC
 from sklearn.metrics import accuracy_score
 
-##################################################
-##### Helpers #####
-##################################################
+##### Helpers ####
 def load_data(file):
- 
+    logging.info('Loading file: %s', file)
     with open(file, 'rb') as f:
         data = pickle.load(f)
     return data
 
 def dump_data(data, filename):
+    logging.info('Writing file: %s', filename)
     with open(filename, 'wb') as f:
         pickle.dump(data, f, pickle.HIGHEST_PROTOCOL)
 
@@ -56,7 +53,6 @@ def select_partition(data, cond):
 def random_eeg_pick(eeg, ids, trial_lim=150):
         eeg_svm = np.full((len((np.unique(ids))), trial_lim, eeg.shape[1], eeg.shape[2]), np.nan)
         for idx, x in enumerate(np.unique(ids)):
-            
             total_num_trials = len(ids[ids == x])
             range_array = np.arange(0, total_num_trials)
             random_numbers = np.random.choice(range_array, trial_lim, replace=False)
@@ -126,10 +122,10 @@ def get_pseudotrials_TG(eeg_dat, tr_num):
         
         return pst, k
 
-##################################################
-##### Preprocessing #####
-##################################################
+#### Preprocessing ####
 def preprocess_eeg(sub, cond, highpass=None, lowpass=40, trialwin=(-0.2, 0.7)):
+    # Set up logging
+    logging.basicConfig(level=logging.INFO)
 
     # Paths
     vhdr_file = f'/projects/crunchie/boyanova/EEG_Things/eeg_experiment/eeg_raw/sub{sub:02d}/eeg_things_{cond}_{sub:04d}.vhdr'
@@ -166,9 +162,7 @@ def preprocess_eeg(sub, cond, highpass=None, lowpass=40, trialwin=(-0.2, 0.7)):
     print(f"Total accepted trials: {dat['eeg'].shape[0]}")
     dump_data(dat, dat_name)
 
-##################################################
-##### EDI #####
-##################################################
+##### EDI func #####
 def run_edi(sub, conditions_1=["fix", "img"], conditions_2 =["det", "rand"], trial_num=12, img_nperms=20, trial_lim=150):
     edi_data = {}
     for cond in conditions_1:
@@ -224,28 +218,19 @@ def run_edi(sub, conditions_1=["fix", "img"], conditions_2 =["det", "rand"], tri
 
     dump_data(edi_data, f"/projects/crunchie/boyanova/EEG_Things/eeg_experiment/eeg_decoding/eeg_mahlanobis_{sub:04d}.pickle")
 
-##################################################
-##### SVM decoding (all versions) #####
-##################################################
-def run_svm(sub, path_dir, conditions_1=["fix", "img"], conditions_2 =["det", "rand"], 
-           trial_num=12, img_nperms=100, trial_lim=150, testsize=0.2):
-    
-    """
-    Runs SVM-based EEG decoding analysis for 4 main conditions.
-    
-    Parameters:
-    subject (int): Subject ID
-    path_dir (str): Path to the project directory
-    """
+##### SVM func #####
+def run_svm(sub, conditions_1=["fix", "img"], conditions_2 =["det", "rand"], trial_num=12, img_nperms=100, trial_lim=150, testsize=0.2):
     decoding_data = {}
     
+
     for cond in conditions_1:
         for cond2 in conditions_2:
             cond_name = f"{cond}_{cond2}"
             decoding_data[cond_name] = []
-            
+            logging.info('Processing condition: %s', cond_name)
+
             # Load and preprocess data
-            dat_name = os.path.join(path_dir, f"eeg_epoched/eeg_things_{sub:04d}_{cond}.pickle")
+            dat_name = f"/projects/crunchie/boyanova/EEG_Things/eeg_experiment/eeg_epoched/eeg_things_{sub:04d}_{cond}.pickle"
             dat = load_data(dat_name)
             dat = average_across_points(dat, window_size=10)
             
@@ -266,7 +251,7 @@ def run_svm(sub, path_dir, conditions_1=["fix", "img"], conditions_2 =["det", "r
             eeg_svm = np.full((n_conditions, trial_lim, n_sensors, n_time), np.nan)
 
             # Loop over permutations
-            for p in tqdm(range(img_nperms), desc=cond_name):
+            for p in tqdm(range(img_nperms), desc="Permutations"):
                 for idx, x in enumerate(np.unique(ids_)):
                     range_array = np.arange(len(ids_[ids_ == x]))
                     random_numbers = np.random.choice(range_array, trial_lim, replace=False)
@@ -310,220 +295,10 @@ def run_svm(sub, path_dir, conditions_1=["fix", "img"], conditions_2 =["det", "r
             TG = TG / (img_nperms * cvs)
             decoding_data[cond_name] = TG
 
-    output_file = os.path.join(path_dir, f"eeg_decoding/eeg_decoding_{sub:04d}.pickle"()
+    output_file = f"/projects/crunchie/boyanova/EEG_Things/eeg_experiment/eeg_decoding/eeg_decoding_{sub:04d}.pickle"
     dump_data(decoding_data, output_file)
 
-def run_svm_att(subject, path_dir, conditions = ["det", "rand"], trial_num = 5, img_nperms = 100, trial_lim=150,testsize = 0.2):
-    
-    """
-    Runs SVM-based EEG decoding analysis for attention condition.
-    
-    Parameters:
-    subject (int): Subject ID
-    path_dir (str): Path to the project directory
-    """
-
-    decoding_data = {}
-
-    for cond in conditions:
-        cond_name = f"{cond}_attention"
-        decoding_data[cond_name] = []
-        
-        dat_name = os.path.join(path_dir, f"eeg_things_{subject:04d}_img.pickle")
-        dat_name2 = os.path.join(path_dir, f"eeg_things_{subject:04d}_fix.pickle")
-        dat_img = load_data(dat_name)
-        dat_fix = load_data(dat_name2)
-
-        dat_img = average_across_points(dat_img, window_size=10)
-        bt_press = dat_img["button_press_mask"]
-        dat_img["eeg"] = dat_img["eeg"][~bt_press]
-        dat_img["ids"] = dat_img["ids"][~bt_press]
-
-        dat_fix = average_across_points(dat_fix, window_size=10)
-        bt_press = dat_fix["button_press_mask"]
-        dat_fix["eeg"] = dat_fix["eeg"][~bt_press]
-        dat_fix["ids"] = dat_fix["ids"][~bt_press]
-
-        pairs = [(0,4), (1,5), (2,6), (3,7)]
-        eeg_img, id_img = select_partition(dat_img, cond)
-        eeg_fix, id_fix = select_partition(dat_fix, cond)
-        id_fix = id_fix + 100
-
-        eeg_ = np.concatenate((eeg_img, eeg_fix))
-        ids_ = np.concatenate((id_img, id_fix))
-        
-        n_conditions = len(np.unique(ids_))
-        n_sensors = eeg_.shape[1]
-        n_time = eeg_.shape[-1]
-
-        TG = np.full((int(n_conditions/2), n_time), np.nan)
-
-        for p in tqdm(range(img_nperms), desc = cond_name):
-            eeg_svm = random_eeg_pick(eeg_, ids_, trial_lim)
-            pstrials, _ = get_pseudotrials(eeg_svm, trial_num)  
-            n_pstrials = pstrials.shape[1]
-            n_test = int(n_pstrials * testsize)
-            ps_ixs = np.arange(n_pstrials)
-            cvs = int(n_pstrials / n_test)
-
-            for cv in range(cvs):
-                test_ix = np.arange(n_test) + (cv * n_test)
-                train_ix = np.delete(ps_ixs.copy(), test_ix)
-                ps_train = pstrials[:,train_ix,:,:]
-                ps_test = pstrials[:,test_ix,:,:]
-
-                sigma_ = np.empty((n_conditions, n_sensors, n_sensors))
-                for c in range(n_conditions):
-                    sigma_[c] = np.mean([_cov(ps_train[c, :, :, t], shrinkage='auto')
-                                            for t in range(n_time)], axis=0)
-                sigma = sigma_.mean(axis=0)
-                sigma_inv = scipy.linalg.fractional_matrix_power(sigma, -0.5)
-                ps_train = (ps_train.swapaxes(2, 3) @ sigma_inv).swapaxes(2, 3)
-                ps_test = (ps_test.swapaxes(2, 3) @ sigma_inv).swapaxes(2, 3)
-
-                for cA, cB in pairs:
-                    for t in range(n_time):
-                        train_x = np.array((ps_train[cA,:,:,t], ps_train[cB,:,:,t]))
-                        train_x = np.reshape(train_x,(len(train_ix)*2, n_sensors))
-                        test_x = np.array((ps_test[cA], ps_test[cB]))
-                        test_x = np.reshape(test_x,(len(test_ix)*2, n_sensors, n_time))
-                        train_y = np.array([1] * len(train_ix) + [2] * len(train_ix))
-                        test_y = np.array([1] * len(test_ix) + [2] * len(test_ix))
-
-                        classifier = LinearSVC(dual=True,
-                                                penalty='l2',
-                                                loss='hinge',
-                                                C=0.5,
-                                                multi_class='ovr',
-                                                fit_intercept=True,
-                                                max_iter=10000)
-                        classifier.fit(train_x, train_y)
-                        pred_y = classifier.predict(test_x[:,:,t])
-                        acc_score = accuracy_score(test_y, pred_y)                      
-                        TG[cA,t] = np.nansum(np.array((TG[cA,t], acc_score)))
-
-        TG = TG / (img_nperms * cvs)
-        decoding_data[cond_name] = TG
-        
-    output_path = os.path.join(
-        path_dir,
-        f"eeg_decoding/eeg_decoding_attention_{subject:04d}.pickle"
-    )
-    dump_data(decoding_data, output_path)
-
-def run_svm_exp(subject, path_dir, conditions = ["fix", "img"], trial_num = 5, img_nperms = 100, trial_lim=150, testsize = 0.2):
-    
-    """
-    Runs SVM-based EEG decoding analysis for expectation condition.
-    
-    Parameters:
-    subject (int): Subject ID
-    path_dir (str): Path to the project directory
-    """
-
-    decoding_data = {}
-
-    for cond in conditions:
-
-        cond_name = f"{cond}_expectation"
-        decoding_data[cond_name] = []
-
-        dat_name = os.path.join(project_dir, f"eeg_things_{sub:04d}_{cond}.pickle")
-        dat = load_data(dat_name)
-
-        # Subsample data
-        dat = average_across_points(dat, window_size=10)
-
-        # Button press mask
-        bt_press = dat["button_press_mask"]
-        dat["eeg"] = dat["eeg"][~bt_press]
-        dat["ids"] = dat["ids"][~bt_press]
-
-        # Select condition
-        image_labels = [1, 2, 3, 4, 11, 12, 13, 14]
-        pairs = [(0, 4), (1, 5), (2, 6), (3, 7)]
-        mask = np.isin(dat["ids"], image_labels)
-
-        eeg_ = dat["eeg"][mask]
-        ids_ = dat["ids"][mask]
-
-        # Get vars
-        n_conditions = len(image_labels)
-        n_sensors = eeg_.shape[1]
-        n_time = eeg_.shape[-1]
-
-        TG = np.full((int(n_conditions / 2), n_time), np.nan)
-
-        for p in tqdm(range(img_nperms), desc=cond_name):
-            eeg_svm = random_eeg_pick(eeg_, ids_, trial_lim)
-
-            pstrials, _ = get_pseudotrials(eeg_svm, trial_num)
-            n_pstrials = pstrials.shape[1]
-            n_test = int(n_pstrials * testsize)
-
-            ps_ixs = np.arange(n_pstrials)
-            cvs = int(n_pstrials / n_test)
-
-            for cv in range(cvs):
-                test_ix = np.arange(n_test) + (cv * n_test)
-                train_ix = np.delete(ps_ixs.copy(), test_ix)
-
-                ps_train = pstrials[:, train_ix, :, :]
-                ps_test = pstrials[:, test_ix, :, :]
-
-                # Whitening
-                sigma_ = np.empty((n_conditions, n_sensors, n_sensors))
-                for c in range(n_conditions):
-                    sigma_[c] = np.mean([
-                        _cov(ps_train[c, :, :, t], shrinkage='auto')
-                        for t in range(n_time)
-                    ], axis=0)
-                sigma = sigma_.mean(axis=0)
-
-                sigma_inv = scipy.linalg.fractional_matrix_power(sigma, -0.5)
-
-                ps_train = (ps_train.swapaxes(2, 3) @ sigma_inv).swapaxes(2, 3)
-                ps_test = (ps_test.swapaxes(2, 3) @ sigma_inv).swapaxes(2, 3)
-
-                for cA, cB in pairs:
-                    for t in range(n_time):
-                        train_x = np.array((ps_train[cA, :, :, t], ps_train[cB, :, :, t]))
-                        train_x = np.reshape(train_x, (len(train_ix) * 2, n_sensors))
-
-                        test_x = np.array((ps_test[cA], ps_test[cB]))
-                        test_x = np.reshape(test_x, (len(test_ix) * 2, n_sensors, n_time))
-
-                        train_y = np.array([1] * len(train_ix) + [2] * len(train_ix))
-                        test_y = np.array([1] * len(test_ix) + [2] * len(test_ix))
-
-                        classifier = LinearSVC(
-                            dual=True,
-                            penalty='l2',
-                            loss='hinge',
-                            C=.5,
-                            multi_class='ovr',
-                            fit_intercept=True,
-                            max_iter=10000
-                        )
-
-                        classifier.fit(train_x, train_y)
-
-                        pred_y = classifier.predict(test_x[:, :, t])
-                        acc_score = accuracy_score(test_y, pred_y)
-                        TG[cA, t] = np.nansum(np.array((TG[cA, t], acc_score)))
-
-        TG = TG / (img_nperms * cvs)
-        decoding_data[cond_name] = TG
-
-    output_path = os.path.join(
-        project_dir,
-        "eeg_decoding/eeg_decoding_expectation_{:04d}.pickle".format(sub)
-    )
-    dump_data(decoding_data, output_path)
-
-##################################################
 ##### Temporal Generalization (all versions) #####
-##################################################
 def TempGen_within(sub,  conditions_1 = ["fix", "img"], conditions_2 = ["det", "rand"], testsize = 0.2, trial_num = 12, img_nperms = 25, trial_lim = 150):
 
     decoding_data = {}
@@ -875,3 +650,65 @@ def TempGen_exp(sub,  testsize = 0.2, trial_num = 12, img_nperms = 25, trial_lim
 
     dump_data(decoding_data, "/projects/crunchie/boyanova/EEG_Things/eeg_experiment/eeg_decoding/eeg_TG_exp_{:04d}.pickle".format(sub))
 
+
+##### Stats functions ####
+
+def fdr_correction(p_values):
+    from statsmodels.stats.multitest import fdrcorrection
+
+    valids = ~np.isnan(p_values)
+    p_vals = p_values[valids]
+
+    fdr = fdrcorrection(p_vals)[1]
+
+    p_corr = np.full((len(p_values)), np.nan)
+    p_corr[valids] = fdr
+
+    return p_corr
+
+def sign_test_1samp(y, p, stat):
+    #y: time serie with shape [observations, time]
+    #p: number of iterations
+    #stat: function of the statistic to be tested, usually the mean (e.g. np.mean)
+
+    import random
+    import mne
+    from tqdm import tqdm 
+
+    p_val = np.full((y.shape[1]), np.nan)
+
+    for i in tqdm(range(y.shape[1])):
+
+        dif_stat = stat(y[:,i])
+
+        if np.isnan(dif_stat):
+            p_val[i] = np.nan
+
+        else:
+            pD = []
+
+            for j in range(0,p):
+                mn = random.choices([-1,1], k=y.shape[0])
+
+                y_ = stat(mn * y[:,i])
+
+                pD.append(y_)
+
+            p_val[i] = len(np.where(pD>=dif_stat)[0])/p
+
+    valid = np.where(~np.isnan(p_val))[0]
+    pv = p_val[valid]
+
+    fdr = np.full((y.shape[1]), np.nan)
+    fdr[valid] = fdr_correction(pv)
+
+    bonf = np.full((y.shape[1]), np.nan)
+    bonf[valid] = mne.stats.bonferroni_correction(pv)[1]
+
+    p_values = {
+                'uncorr': p_val,
+                'fdr': fdr,
+                'bonferroni': bonf
+    }
+
+    return(p_values)
