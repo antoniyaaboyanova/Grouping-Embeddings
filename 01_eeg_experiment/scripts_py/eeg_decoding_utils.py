@@ -310,7 +310,7 @@ def run_svm(sub, path_dir, conditions_1=["fix", "img"], conditions_2 =["det", "r
             TG = TG / (img_nperms * cvs)
             decoding_data[cond_name] = TG
 
-    output_file = os.path.join(path_dir, f"eeg_decoding/eeg_decoding_{sub:04d}.pickle"()
+    output_file = os.path.join(path_dir, f"eeg_decoding/eeg_decoding_{sub:04d}.pickle")
     dump_data(decoding_data, output_file)
 
 def run_svm_att(subject, path_dir, conditions = ["det", "rand"], trial_num = 5, img_nperms = 100, trial_lim=150,testsize = 0.2):
