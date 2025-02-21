@@ -18,6 +18,8 @@ def main():
     parser.add_argument('--preprocess', action='store_true', help="Run preprocessing step")
     parser.add_argument('--edi', action='store_true', help="Run EDI analysis")
     parser.add_argument('--svm', action='store_true', help="Run SVM analysis")
+    parser.add_argument('--svm_att', action='store_true', help="Run SVM analysis - attention")
+    parser.add_argument('--svm_exp', action='store_true', help="Run SVM analysis - expectation")
     parser.add_argument('--temp-gen', action='store_true', help="Run Temporal Generalisation steps")
 
     args = parser.parse_args()
@@ -32,6 +34,8 @@ def main():
             "Preprocessing": args.preprocess,
             "EDI analysis": args.edi,
             "SVM analysis": args.svm,
+            "SVM analysis - attention": args.svm_att,
+            "SVM analysis - expectation": args.svm_att,
             "Temporal Generalisation": args.temp_gen,
         }
 
@@ -44,6 +48,8 @@ def main():
             "Preprocessing": args.preprocess or run_all,
             "EDI analysis": args.edi or run_all,
             "SVM analysis": args.svm or run_all,
+            "SVM analysis - attention": args.svm_att or run_all,
+            "SVM analysis - expectation": args.svm_exp or run_all,
             "Temporal Generalisation": args.temp_gen or run_all,
         }
 
@@ -61,6 +67,14 @@ def main():
     if steps["SVM analysis"]:
         print("<<< SVM analysis >>>")
         run_svm(sub)
+
+    if steps["SVM analysis - attention"]:
+        print("<<< SVM analysis - attention >>>")
+        run_svm_att(sub)
+
+    if steps["SVM analysis - expectation"]:
+        print("<<< SVM analysis - attention >>>")
+        run_svm_exp(sub)
 
     if steps["Temporal Generalisation"]:
         print("<<< Starting Temporal Generalisation >>>")

@@ -1,7 +1,7 @@
 # Ignore the model cache directory
-models/*
-scripts_nb/04_Visualise_Embeddings.ipynb
-scripts_py/visualize.ipynb
+00_stim_prep/models/*
+00_stm_prep/scripts_nb/04_Visualise_Embeddings.ipynb
+00_stim_prep/scripts_py/visualize.ipynb
 
 # Ignore Python cache files
 __pycache__/
